@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BD Bus Finder</title>
+  <meta name="description" content="Compare Bangladesh bus tickets from BDTickets, Shohoz and more in one search.">
+  <meta name="theme-color" content="#0b6b3a">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <h1>BD Bus Finder</h1>
+    <p>One search across Bangladesh bus ticket sites</p>
+  </header>
+
+  <main>
+    <form id="search" class="card search" autocomplete="off">
+      <label>From
+        <input id="from" name="from" list="cities" required placeholder="Dhaka">
+      </label>
+      <button type="button" id="swap" class="swap" aria-label="Swap from and to">⇅</button>
+      <label>To
+        <input id="to" name="to" list="cities" required placeholder="Chattogram">
+      </label>
+      <label>Date
+        <input id="date" name="date" type="date" required>
+      </label>
+      <button type="submit" class="primary" id="go">Search all sites</button>
+      <datalist id="cities"></datalist>
+    </form>
+
+    <section id="status" class="providers" aria-live="polite"></section>
+
+    <section id="filters" class="card filters" hidden>
+      <label>Sort
+        <select id="sort">
+          <option value="fare">Lowest fare</option>
+          <option value="departure">Earliest departure</option>
+          <option value="seats">Most seats</option>
+        </select>
+      </label>
+      <label>Coach
+        <select id="coach">
+          <option value="">All</option>
+          <option value="AC">AC</option>
+          <option value="Non-AC">Non-AC</option>
+        </select>
+      </label>
+      <label>Site
+        <select id="site"><option value="">All</option></select>
+      </label>
+      <label>Operator
+        <input id="operator" placeholder="e.g. Green Line">
+      </label>
+    </section>
+
+    <p id="summary" class="summary"></p>
+    <ul id="results" class="results"></ul>
+  </main>
+
+  <footer class="foot">
+    Fares and seats come from each site at search time and can change. You book and pay on the original site.
+  </footer>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

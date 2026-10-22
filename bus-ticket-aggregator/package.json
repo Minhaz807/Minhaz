@@ -1,0 +1,16 @@
+{
+  "name": "bd-bus-ticket-aggregator",
+  "version": "0.1.0",
+  "description": "Search Bangladesh bus tickets across BDTickets, Shohoz and more in one place",
+  "type": "module",
+  "main": "server.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "demo": "DEMO_MODE=1 node server.js",
+    "test": "node --test"
+  },
+  "license": "MIT"
+}
