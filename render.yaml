@@ -13,3 +13,18 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "22"
+
+  # Same app in a US region: Shohoz refuses Render's Singapore servers (403 at sign-in).
+  - type: web
+    name: bd-bus-finder-us
+    runtime: node
+    plan: free
+    region: ohio
+    branch: claude/bd-bus-ticket-aggregator-9bzszk
+    rootDir: bus-ticket-aggregator
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/providers
+    envVars:
+      - key: NODE_VERSION
+        value: "22"

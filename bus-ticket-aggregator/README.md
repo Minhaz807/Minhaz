@@ -31,7 +31,7 @@ Render's free plan hosts this app with no credit card. The free server sleeps af
 
 Once this branch is merged into `main`, delete the `branch:` line in `render.yaml` so Render deploys from `main`.
 
-**Shohoz on Render:** Shohoz blocks searches that come from cloud servers (it answers `403 Forbidden`), so the Render link only lists BDTickets trips. The Shohoz box still opens Shohoz's own results for your route in one tap. BDTickets works fine from Render.
+**Shohoz on Render:** Shohoz refuses Render's Singapore servers (`403 Forbidden` at sign-in), so `render.yaml` also defines `bd-bus-finder-us` in the Ohio region. If a region is refused, that link only lists BDTickets trips. The Shohoz box still opens Shohoz's own results for your route in one tap. BDTickets works fine from Render.
 
 ## Run it on your Android phone (free, includes Shohoz)
 
