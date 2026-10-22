@@ -52,6 +52,9 @@ export function toHHMM(v) {
   }
   const plain = s.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
   if (plain) return `${plain[1].padStart(2, '0')}:${plain[2]}`;
+  // "2026-10-28 12:00:00" with no zone is already Dhaka wall-clock time.
+  const local = s.match(/^\d{4}-\d{2}-\d{2}[ T](\d{2}):(\d{2})(?::\d{2}(?:\.\d+)?)?$/);
+  if (local) return `${local[1]}:${local[2]}`;
   const d = new Date(s);
   return isNaN(d) ? null : dhakaHHMM(d);
 }
@@ -69,6 +72,13 @@ export function normalizeCoachType(v) {
   const s = String(v ?? '').toLowerCase();
   if (!s) return 'Unknown';
   if (/non[\s-]?a[./]?c/.test(s)) return 'Non-AC';
-  if (/\ba[./]?c\b|air/.test(s)) return 'AC';
+  if (/\ba[./]?c\b|\bair[\s-]?con/.test(s)) return 'AC';
   return String(v);
+}
+
+/** With DEBUG_PROVIDERS=1, print one raw provider row so field mappings can be checked. */
+export function debugRaw(provider, rows) {
+  if (process.env.DEBUG_PROVIDERS === '1' && rows?.length) {
+    console.log(`[${provider}] raw result sample:\n${JSON.stringify(rows[0], null, 2)}`);
+  }
 }

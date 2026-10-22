@@ -1,15 +1,21 @@
 // Shohoz (shohoz.com) adapter.
 //
-// The Shohoz web app fetches trips via an Angular service that sends
-// from_city / to_city / date_of_journey to its SEARCH_TRIPS endpoint, but
-// every call needs a per-session "handshake" hash first. Until that flow is
-// wired up this adapter is link-only: it builds a pre-filled Shohoz search
-// URL so the user lands directly on the results page with one tap.
-// To add live results, implement search() returning Trip[] (see ../trip.js).
+// Uses the same public endpoints the shohoz.com web app calls from the
+// browser (webapi.shohoz.com/v1.0/web):
+//   POST /auth/sign-in  {}            -> { data: { token } }   (guest token)
+//   GET  /booking/bus/search-trips?from_city=&to_city=&date_of_journey=&dor=
+//                                     -> { data: { trips: { total, list: [...] }, filters } }
+// date_of_journey uses the site's "27-Oct-2026" format. Trip fields come from
+// the Shohoz search page code (company_name, economy_class_fare, ...); the
+// mapping stays tolerant in case they drift.
 
+import { fetchJson, HttpError } from '../http.js';
 import { cityVariants } from '../cities.js';
+import { pick, toNumber, toHHMM, normalizeCoachType, debugRaw } from '../trip.js';
 
 const SITE = 'https://www.shohoz.com';
+const API = process.env.SHOHOZ_API || 'https://webapi.shohoz.com/v1.0/web';
+const TOKEN_TTL_MS = 30 * 60 * 1000;
 
 // Shohoz still lists a few cities under their older English spellings.
 const SHOHOZ_NAMES = {
@@ -43,10 +49,91 @@ export function searchUrl(from, to, date) {
   return `${SITE}/bus-tickets/booking/bus/search?${qs}`;
 }
 
+const baseHeaders = {
+  Origin: SITE,
+  Referer: `${SITE}/`,
+  'X-Requested-With': 'XMLHttpRequest',
+};
+
+let token = null; // { value, expiresAt }
+
+async function getToken(force = false) {
+  if (!force && token && token.expiresAt > Date.now()) return token.value;
+  const res = await fetchJson(`${API}/auth/sign-in`, { method: 'POST', headers: baseHeaders, body: {} });
+  const value = res?.data?.token ?? res?.token;
+  if (!value) throw new Error('Shohoz did not return a guest token');
+  token = { value, expiresAt: Date.now() + TOKEN_TTL_MS };
+  return value;
+}
+
+async function api(path) {
+  const call = async (t) =>
+    fetchJson(`${API}${path}`, { headers: { ...baseHeaders, 'Content-Type': 'application/json', Authorization: `Bearer ${t}` } });
+  try {
+    return await call(await getToken());
+  } catch (err) {
+    if (err instanceof HttpError && err.status === 401) return call(await getToken(true));
+    throw err;
+  }
+}
+
+function pointName(points) {
+  const first = Array.isArray(points) ? points[0] : points;
+  if (!first) return null;
+  return typeof first === 'string' ? first : pick(first, ['name', 'location_name', 'counter_name', 'title']);
+}
+
+function lowestFare(r) {
+  const fares = ['economy_class_fare', 'business_class_fare', 'special_class_fare', 'seat_fare', 'fare']
+    .map((k) => toNumber(r[k]))
+    .filter((n) => n != null && n > 0);
+  return fares.length ? Math.min(...fares) : null;
+}
+
+// bus_type codes seen on Shohoz; the free-text bus_desc wins when it says AC/Non AC.
+const BUS_TYPE_CODES = { 1: 'AC', 2: 'Non-AC' };
+
+function coachType(r) {
+  const fromDesc = normalizeCoachType(r.bus_desc);
+  if (fromDesc === 'AC' || fromDesc === 'Non-AC') return fromDesc;
+  return BUS_TYPE_CODES[r.bus_type] || normalizeCoachType(r.bus_type_name ?? r.bus_type);
+}
+
+export function normalizeResult(r, { bookingUrl }) {
+  return {
+    id: `shohoz:${pick(r, ['trip_route_id', 'trip_id', 'no']) ?? Math.random().toString(36).slice(2)}`,
+    provider: 'shohoz',
+    operator: String(pick(r, ['company_name', 'operator_name']) || 'Unknown operator').replace(/\s+/g, ' ').trim(),
+    coachType: coachType(r),
+    coachName: pick(r, ['bus_desc', 'trip_heading']) || (r.trip_number ? `Coach #${r.trip_number}` : null),
+    departureTime: toHHMM(pick(r, ['departure_time'])),
+    arrivalTime: toHHMM(pick(r, ['arrival_time'])),
+    boardingPoint: pointName(r.boarding_points) || pick(r, ['origin_city_name']),
+    droppingPoint: pointName(r.dropping_points) || pick(r, ['destination_city_name']),
+    fare: lowestFare(r),
+    seatsAvailable: toNumber(pick(r, ['noOfSeatsAvailable', 'available_seats', 'seats_available'])),
+    bookingUrl,
+  };
+}
+
 export default {
   key: 'shohoz',
   name: 'Shohoz',
   site: SITE,
   searchUrl,
-  linkOnly: true,
+
+  async search({ from, to, date }) {
+    const qs = new URLSearchParams({
+      from_city: shohozCity(from),
+      to_city: shohozCity(to),
+      date_of_journey: shohozDate(date),
+      dor: '',
+    });
+    const res = await api(`/booking/bus/search-trips?${qs}`);
+    const data = res?.data ?? res;
+    const list = data?.trips?.list ?? (Array.isArray(data?.trips) ? data.trips : []);
+    const bookingUrl = searchUrl(from, to, date);
+    debugRaw('shohoz', list);
+    return list.map((r) => normalizeResult(r, { bookingUrl }));
+  },
 };

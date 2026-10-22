@@ -13,13 +13,15 @@
 import { randomUUID } from 'node:crypto';
 import { fetchJson, sleep } from '../http.js';
 import { cityVariants, normalizeKey, slugify } from '../cities.js';
-import { pick, toNumber, toHHMM, normalizeCoachType } from '../trip.js';
+import { pick, toNumber, toHHMM, normalizeCoachType, debugRaw } from '../trip.js';
 
 const API = process.env.BDTICKETS_API || 'https://apiv1.bdtickets.com/api/v1';
 const SITE = 'https://bdtickets.com';
 const STATIONS_TTL_MS = 6 * 60 * 60 * 1000;
 const POLL_INTERVAL_MS = 1500;
 const POLL_MAX_MS = 20000;
+const PAGE_SIZE = 100;
+const MAX_PAGES = 5;
 
 const deviceId = process.env.BDTICKETS_DEVICE_ID || `bd-bus-aggregator-${randomUUID()}`;
 let token = null; // { value, expiresAt }
@@ -90,13 +92,13 @@ export function normalizeResult(r, { bookingUrl }) {
     provider: 'bdtickets',
     operator: typeof operator === 'string' ? operator : String(operator?.name ?? 'Unknown operator'),
     coachType,
-    coachName: pick(r, ['coachName', 'busName', 'vehicle.name', 'brand', 'coachNo', 'coachNumber']),
+    coachName: pick(r, ['operatorData.busDesc', 'coachName', 'busName', 'vehicle.name', 'coachNumber']),
     departureTime: toHHMM(pick(r, ['departureTime', 'departure_time', 'departure.time', 'departureDateTime', 'startTime', 'departure'])),
     arrivalTime: toHHMM(pick(r, ['arrivalTime', 'arrival_time', 'arrival.time', 'arrivalDateTime', 'endTime', 'arrival'])),
-    boardingPoint: pick(r, ['boardingPoint.name', 'boardingStation.name', 'startingPoint', 'origin.name', 'from']),
-    droppingPoint: pick(r, ['droppingPoint.name', 'droppingStation.name', 'endingPoint', 'destination.name', 'to']),
-    fare: toNumber(pick(r, ['fare.min', 'minFare', 'lowestFare', 'price.min', 'price', 'fare', 'seatFare', 'amount'])),
-    seatsAvailable: toNumber(pick(r, ['availableSeats', 'seatsAvailable', 'available_seats', 'seatAvailability.available', 'totalAvailableSeats'])),
+    boardingPoint: pick(r, ['operatorData.boardingPoints.0.name', 'boardingPoints.0.name', 'departure.address', 'boardingPoint.name']),
+    droppingPoint: pick(r, ['operatorData.droppingPoints.0.name', 'droppingPoints.0.name', 'arrival.address', 'droppingPoint.name']),
+    fare: toNumber(pick(r, ['finalFare', 'minFare', 'fare.min', 'lowestFare', 'price', 'fare'])),
+    seatsAvailable: toNumber(pick(r, ['seatAvailability.available', 'availableSeats', 'seatsAvailable', 'available_seats'])),
     bookingUrl,
   };
 }
@@ -128,16 +130,28 @@ export default {
     if (!searchId) throw new Error('BDTickets search did not return a searchId');
 
     const bookingUrl = searchUrl(origin.code, destination.code, date);
-    const deadline = Date.now() + POLL_MAX_MS;
-    let latest = null;
-    while (true) {
-      const qs = new URLSearchParams({ sortBy: 'price', sortOrder: 'asc', page: '1', limit: '100', version: '0' });
+    const fetchPage = async (page) => {
+      const qs = new URLSearchParams({ sortBy: 'price', sortOrder: 'asc', page: String(page), limit: String(PAGE_SIZE), version: '0' });
       const res = await api(`/search/${encodeURIComponent(searchId)}/results?${qs}`);
-      latest = res?.data ?? res;
-      if (isComplete(latest) || Date.now() > deadline) break;
+      const body = res?.data ?? res;
+      return { body, pagination: body?.pagination ?? res?.pagination };
+    };
+
+    // Their search runs in the background: poll page 1 until it reports complete.
+    const deadline = Date.now() + POLL_MAX_MS;
+    let first;
+    while (true) {
+      first = await fetchPage(1);
+      if (isComplete(first.body) || Date.now() > deadline) break;
       await sleep(POLL_INTERVAL_MS);
     }
-    const rows = latest?.results?.length ? latest.results : latest?.partialResults ?? [];
+    const pageRows = (p) => (p.body?.results?.length ? p.body.results : p.body?.partialResults ?? []);
+    const rows = [...pageRows(first)];
+    const total = first.pagination?.total ?? first.body?.totalFound ?? rows.length;
+    const pages = Math.min(MAX_PAGES, Math.ceil(total / PAGE_SIZE));
+    const rest = await Promise.all(Array.from({ length: Math.max(0, pages - 1) }, (_, i) => fetchPage(i + 2)));
+    for (const p of rest) rows.push(...pageRows(p));
+    debugRaw('bdtickets', rows);
     return rows.map((r) => normalizeResult(r, { bookingUrl }));
   },
 };

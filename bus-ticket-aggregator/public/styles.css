@@ -107,6 +107,8 @@ button { font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid v
   font-size: 13px;
   white-space: nowrap;
 }
+.book.alt { background: transparent; color: var(--c); border: 1.5px solid var(--c); }
+.offers { display: grid; gap: 6px; justify-items: end; }
 .demo { color: var(--accent); }
 
 @media (max-width: 640px) {
@@ -116,5 +118,6 @@ button { font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid v
   .swap { grid-row: 1 / span 2; grid-column: 2; align-self: center; }
   .filters { grid-template-columns: 1fr 1fr; }
   .trip { flex-direction: column; }
-  .trip-side { grid-template-columns: 1fr auto; align-items: center; justify-items: start; text-align: left; }
+  .trip-side { grid-template-columns: auto 1fr; align-items: center; justify-items: start; text-align: left; }
+  .offers { justify-items: end; justify-self: end; }
 }

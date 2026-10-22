@@ -5,7 +5,7 @@ Search once and see bus trips from several Bangladeshi ticket sites side by side
 | Site | Status |
 |------|--------|
 | **BDTickets** (bdtickets.com) | Live search through the same public API its website uses |
-| **Shohoz** (shohoz.com) | Link only for now: opens Shohoz's results page with your route and date filled in |
+| **Shohoz** (shohoz.com) | Live search through the same public API its website uses (guest token, then trip search) |
 
 ## Run it
 
@@ -27,7 +27,7 @@ Open it on your phone over the same Wi-Fi with `http://<your-computer-ip>:3000`.
 | `PORT` | Port to listen on (default `3000`) |
 | `DEMO_MODE=1` | Use sample trips instead of live sites |
 | `DISABLED_PROVIDERS=shohoz` | Comma-separated provider keys to turn off |
-| `BDTICKETS_API` | Override the BDTickets API base URL |
+| `BDTICKETS_API` / `SHOHOZ_API` | Override a provider's API base URL |
 
 ## How it works
 
@@ -35,7 +35,7 @@ Open it on your phone over the same Wi-Fi with `http://<your-computer-ip>:3000`.
 browser ──► /api/search?from=Dhaka&to=Chattogram&date=2026-11-05
               │
               ├─► BDTickets adapter ─► anonymous token → station lookup → search/initialize → poll results
-              ├─► Shohoz adapter   ─► pre-filled search link
+              ├─► Shohoz adapter   ─► guest sign-in → search-trips
               └─► (more adapters)
               ▼
         merge + normalize → one sorted list (each site's results are cached for 60s)
@@ -56,10 +56,18 @@ browser ──► /api/search?from=Dhaka&to=Chattogram&date=2026-11-05
 These sites don't publish official APIs, so adapters can break when a site changes.
 
 - **BDTickets** (`src/providers/bdtickets.js`): the endpoints come from the bdtickets.com web app. The field names inside each search result aren't documented, so `normalizeResult()` checks several likely names. If trips show "Unknown operator" or no fare, log one raw result and add its field names to the `pick([...])` lists.
-- **Shohoz** (`src/providers/shohoz.js`): the web app needs a per-session "handshake" hash before it calls its trip search (`from_city`, `to_city`, `date_of_journey`). Implement `search()` returning `Trip[]` and remove `linkOnly: true` to get live results.
+- **Shohoz** (`src/providers/shohoz.js`): gets a guest token from `/auth/sign-in`, then calls `/booking/bus/search-trips` with `from_city`, `to_city` and `date_of_journey` (format `27-Oct-2026`). Field names come from the Shohoz search page code. If seat counts never show up, log one raw trip and add its seat field to the `seatsAvailable` list.
+- To make a provider link-only (a button, no live results), set `linkOnly: true` on it.
 - **Adding a site** (Jatri, a bus operator's own site, etc.): create `src/providers/<name>.js` exporting `{ key, name, site, searchUrl(from,to,date), search({from,to,date}) }`, then register it in `src/providers/index.js`.
 
+## Debugging
+
+Run with `DEBUG_PROVIDERS=1 npm start` to print one raw result from each site. Use it to check or update the field mappings.
+
 ## Notes
+
+- The same bus is often sold on both sites. Those trips are merged into one card with a price button per site (matched on operator, departure time and coach type).
+- Some operators on BDTickets (e.g. long routes that pass through your city) report the time and counter where the whole route starts, not your stop. That comes from the site's own data.
 
 - Fares and seat counts are a snapshot taken at search time. Booking and payment always happen on the original site.
 - Check each site's terms of use before you deploy this publicly or run frequent automated searches. For a production service, ask the sites for partner/affiliate API access.
