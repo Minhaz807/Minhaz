@@ -1,0 +1,15 @@
+# Render Blueprint: free hosting for the BD bus ticket aggregator.
+services:
+  - type: web
+    name: bd-bus-finder
+    runtime: node
+    plan: free
+    region: singapore
+    branch: claude/bd-bus-ticket-aggregator-9bzszk
+    rootDir: bus-ticket-aggregator
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/providers
+    envVars:
+      - key: NODE_VERSION
+        value: "22"

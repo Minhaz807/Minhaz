@@ -20,6 +20,17 @@ npm test
 
 Open it on your phone over the same Wi-Fi with `http://<your-computer-ip>:3000`. You can also choose **Add to Home Screen**, which makes it work like an app.
 
+## Put it online for free (Render)
+
+Render's free plan hosts this app with no credit card. The free server sleeps after 15 minutes with no visitors, and the first visit after that takes about a minute to wake it.
+
+1. Sign up at https://render.com with your GitHub account.
+2. Click **New → Blueprint** and pick the `Minhaz807/Minhaz` repository. Render reads `render.yaml` from the repo root and sets everything up (branch, folder, Singapore region, free plan).
+   - If Render doesn't offer that branch, use **New → Web Service** instead and enter: branch `claude/bd-bus-ticket-aggregator-9bzszk`, root directory `bus-ticket-aggregator`, build `npm install`, start `npm start`, instance type **Free**.
+3. Click **Deploy**. After a minute or two you get a link like `https://bd-bus-finder.onrender.com`. Open it on your phone and choose **Add to Home Screen**.
+
+Once this branch is merged into `main`, delete the `branch:` line in `render.yaml` so Render deploys from `main`.
+
 ### Settings (environment variables)
 
 | Variable | Purpose |
