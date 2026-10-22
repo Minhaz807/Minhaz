@@ -90,11 +90,21 @@ function renderStatus(data) {
           ? `${p.count} trip${p.count === 1 ? '' : 's'} · ${(p.ms / 1000).toFixed(1)}s`
           : p.status === 'link-only'
             ? 'Live results not available yet'
-            : `Couldn't load: ${esc(p.error)}`;
+            : p.status === 'blocked'
+              ? "Can't search from this server"
+              : `Couldn't load: ${esc(p.error)}`;
+      const cta = p.status === 'ok' ? 'Open site ↗' : `See trips on ${esc(p.name)} ↗`;
       return `<a class="chip ${p.status}" href="${esc(p.searchUrl)}" target="_blank" rel="noopener" style="--c:${color}">
-        <b>${esc(p.name)}</b><span>${label}</span><em>Open site ↗</em></a>`;
+        <b>${esc(p.name)}</b><span>${label}</span><em>${cta}</em></a>`;
     })
-    .join('');
+    .join('') +
+    data.providers
+      .filter((p) => p.status === 'blocked')
+      .map(
+        (p) =>
+          `<p class="note">${esc(p.name)} doesn't allow searches from online servers, so its trips aren't in this list. Tap the ${esc(p.name)} box above to see them on ${esc(p.name)}. To get them here too, run the app on your own phone or computer (see the README).</p>`,
+      )
+      .join('');
 }
 
 const opKey = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -150,7 +160,7 @@ function render() {
       const offers = t.offers
         .map(
           (o, i) =>
-            `<a class="book${i ? ' alt' : ''}" href="${esc(o.bookingUrl)}" target="_blank" rel="noopener" style="--c:${PROVIDER_COLORS[o.provider] || 'var(--ink-soft)'}">${esc(providerName(o.provider))} · ${fmtFare(o.fare)}</a>`,
+            `<a class="book${i ? ' alt' : ''}" href="${esc(o.bookingUrl)}" target="_blank" rel="noopener" style="--c:${PROVIDER_COLORS[o.provider] || 'var(--ink-soft)'}">${esc(providerName(o.provider))} · ${o.originalFare ? `<s>${fmtFare(o.originalFare)}</s> ` : ''}${fmtFare(o.fare)}</a>`,
         )
         .join('');
       return `<li class="card trip">

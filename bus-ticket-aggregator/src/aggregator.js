@@ -51,7 +51,7 @@ export function createAggregator(providers, { now = Date.now } = {}) {
     } catch (err) {
       return {
         trips: [],
-        status: { provider: p.key, name: p.name, status: 'error', count: 0, ms: now() - started, searchUrl, error: err.message },
+        status: { provider: p.key, name: p.name, status: err.blocked ? 'blocked' : 'error', count: 0, ms: now() - started, searchUrl, error: err.message },
       };
     }
   }

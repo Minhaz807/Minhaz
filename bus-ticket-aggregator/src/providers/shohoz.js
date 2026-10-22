@@ -66,14 +66,28 @@ async function getToken(force = false) {
   return value;
 }
 
+/** Shohoz answers 403 to requests from cloud hosting (Render, etc.); flag it so the UI can explain. */
+function markBlocked(err) {
+  if (err instanceof HttpError && err.status === 403) {
+    const e = new Error('Shohoz blocks searches from cloud servers');
+    e.blocked = true;
+    return e;
+  }
+  return err;
+}
+
 async function api(path) {
   const call = async (t) =>
     fetchJson(`${API}${path}`, { headers: { ...baseHeaders, 'Content-Type': 'application/json', Authorization: `Bearer ${t}` } });
   try {
-    return await call(await getToken());
+    try {
+      return await call(await getToken());
+    } catch (err) {
+      if (err instanceof HttpError && err.status === 401) return await call(await getToken(true));
+      throw err;
+    }
   } catch (err) {
-    if (err instanceof HttpError && err.status === 401) return call(await getToken(true));
-    throw err;
+    throw markBlocked(err);
   }
 }
 
@@ -83,10 +97,17 @@ function pointName(points) {
   return typeof first === 'string' ? first : pick(first, ['name', 'location_name', 'counter_name', 'title']);
 }
 
-function lowestFare(r) {
-  const fares = ['economy_class_fare', 'business_class_fare', 'special_class_fare', 'seat_fare', 'fare']
-    .map((k) => toNumber(r[k]))
-    .filter((n) => n != null && n > 0);
+const positive = (list) => list.map(toNumber).filter((n) => n != null && n > 0);
+
+function listFare(r) {
+  const fares = positive(['economy_class_fare', 'business_class_fare', 'special_class_fare', 'seat_fare', 'fare'].map((k) => r[k]));
+  return fares.length ? Math.min(...fares) : null;
+}
+
+/** Operator discounts carry the final price per class in discount.fare_discount[].fare. */
+function discountedFare(r) {
+  const list = r.discount?.fare_discount;
+  const fares = Array.isArray(list) ? positive(list.map((d) => d.fare)) : [];
   return fares.length ? Math.min(...fares) : null;
 }
 
@@ -100,6 +121,9 @@ function coachType(r) {
 }
 
 export function normalizeResult(r, { bookingUrl }) {
+  const list = listFare(r);
+  const discounted = discountedFare(r);
+  const fare = Math.min(list ?? Infinity, discounted ?? Infinity);
   return {
     id: `shohoz:${pick(r, ['trip_route_id', 'trip_id', 'no']) ?? Math.random().toString(36).slice(2)}`,
     provider: 'shohoz',
@@ -110,7 +134,8 @@ export function normalizeResult(r, { bookingUrl }) {
     arrivalTime: toHHMM(pick(r, ['arrival_time'])),
     boardingPoint: pointName(r.boarding_points) || pick(r, ['origin_city_name']),
     droppingPoint: pointName(r.dropping_points) || pick(r, ['destination_city_name']),
-    fare: lowestFare(r),
+    fare: fare === Infinity ? null : fare,
+    originalFare: list != null && discounted != null && list > discounted ? list : null,
     seatsAvailable: toNumber(pick(r, ['noOfSeatsAvailable', 'available_seats', 'seats_available'])),
     bookingUrl,
   };

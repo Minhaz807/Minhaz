@@ -31,6 +31,28 @@ Render's free plan hosts this app with no credit card. The free server sleeps af
 
 Once this branch is merged into `main`, delete the `branch:` line in `render.yaml` so Render deploys from `main`.
 
+**Shohoz on Render:** Shohoz blocks searches that come from cloud servers (it answers `403 Forbidden`), so the Render link only lists BDTickets trips. The Shohoz box still opens Shohoz's own results for your route in one tap. BDTickets works fine from Render.
+
+## Run it on your Android phone (free, includes Shohoz)
+
+Running the app on your own phone uses your normal mobile or Wi-Fi connection, so Shohoz allows it.
+
+1. Install **Termux** from F-Droid (https://f-droid.org/packages/com.termux/). The Play Store version is outdated.
+2. In Termux, run once:
+   ```bash
+   pkg update -y && pkg install -y nodejs git
+   git clone -b claude/bd-bus-ticket-aggregator-9bzszk https://github.com/Minhaz807/Minhaz.git
+   ```
+3. Every time you want to use it:
+   ```bash
+   cd Minhaz/bus-ticket-aggregator && npm start
+   ```
+4. Open **http://localhost:3000** in Chrome on the same phone. Keep Termux open in the background while you search.
+
+To get the latest version later: `cd ~/Minhaz && git pull`.
+
+On a Windows or Mac computer, install Node.js from https://nodejs.org, download the code, then run `npm start` in the `bus-ticket-aggregator` folder.
+
 ### Settings (environment variables)
 
 | Variable | Purpose |

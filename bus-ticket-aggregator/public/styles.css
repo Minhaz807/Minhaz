@@ -81,7 +81,10 @@ button { font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid v
 }
 .chip span { color: var(--ink-soft); }
 .chip em { grid-column: 1 / -1; font-style: normal; font-size: 12px; color: var(--c, var(--brand)); font-weight: 600; }
-.chip.error span { color: var(--accent); }
+.chip.error span, .chip.blocked span { color: var(--accent); }
+.chip.blocked, .chip.error { border-left-width: 6px; }
+.note { flex-basis: 100%; margin: 2px 0 0; font-size: 13px; color: var(--ink-soft); }
+.book s { opacity: .75; font-weight: 400; }
 
 .filters { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 12px 14px; }
 .summary { color: var(--ink-soft); margin: 14px 2px 8px; }

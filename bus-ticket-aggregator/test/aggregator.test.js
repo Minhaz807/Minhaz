@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createAggregator, sortTrips, validateQuery } from '../src/aggregator.js';
+import { HttpError } from '../src/http.js';
 import { canonicalCity, cityVariants } from '../src/cities.js';
 import { toHHMM, normalizeCoachType } from '../src/trip.js';
 import { normalizeResult, resolveStation } from '../src/providers/bdtickets.js';
@@ -158,4 +159,39 @@ test('shohoz real fields: seats, spacing and bus_type fallback', () => {
   assert.equal(t.coachType, 'AC');
   assert.equal(t.departureTime, '04:30');
   assert.equal(t.seatsAvailable, 36);
+});
+
+test('shohoz operator discount gives the lower fare and keeps the original', () => {
+  const t = normalizeShohoz(
+    {
+      trip_id: 2,
+      company_name: 'Hanif Enterprise',
+      bus_desc: '1, VOLVO, AC',
+      economy_class_fare: '0.00',
+      business_class_fare: '1500.00',
+      discount: { fare_discount: [{ type: 2, discount: '200', fare_type: 'Business', fare: 1300 }] },
+    },
+    { bookingUrl: 'x' },
+  );
+  assert.equal(t.fare, 1300);
+  assert.equal(t.originalFare, 1500);
+  const plain = normalizeShohoz({ trip_id: 3, economy_class_fare: '790.00', discount: [] }, { bookingUrl: 'x' });
+  assert.equal(plain.fare, 790);
+  assert.equal(plain.originalFare, null);
+});
+
+test('a provider that is blocked is reported as blocked, not a generic error', async () => {
+  const blocked = {
+    key: 'b',
+    name: 'B',
+    searchUrl: () => 'https://b',
+    search: async () => {
+      const e = new Error('blocked');
+      e.blocked = true;
+      throw e;
+    },
+  };
+  const r = await createAggregator([blocked]).search({ from: 'Dhaka', to: 'Sylhet', date: '2026-11-01' });
+  assert.equal(r.providers[0].status, 'blocked');
+  assert.ok(new HttpError(403, null, 'https://webapi.shohoz.com/x') instanceof Error);
 });
