@@ -9,6 +9,7 @@ export class HttpError extends Error {
     super(`HTTP ${status} from ${new URL(url).host}`);
     this.status = status;
     this.body = body;
+    this.path = new URL(url).pathname;
   }
 }
 

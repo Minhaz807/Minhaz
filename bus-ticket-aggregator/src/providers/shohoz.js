@@ -71,6 +71,9 @@ function markBlocked(err) {
   if (err instanceof HttpError && err.status === 403) {
     const e = new Error('Shohoz blocks searches from cloud servers');
     e.blocked = true;
+    // Keep Shohoz's own reason so it shows up in /api/search for troubleshooting.
+    const reason = typeof err.body === 'string' ? err.body : JSON.stringify(err.body ?? '');
+    e.detail = `${err.path}: ${reason.slice(0, 300)}`;
     return e;
   }
   return err;
